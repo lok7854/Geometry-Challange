@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Geometry Lite</title>
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #2c3e50; /* Hintergrundfarbe */
+        }
+
+        canvas {
+            border: 4px solid #2980b9; /* Spielfeldrahmen */
+            background-color: #ecf0f1; /* Spielfeldhintergrund */
+            display: block;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: #e74c3c; /* Spielende Textfarbe */
+            font-family: Arial, sans-serif;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+        }
+
+        #scoreText {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #3498db;
+            font-size: 24px;
+        }
+
+        #retryButton {
+            position: absolute;
+            top: 60%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #3498db;
+            color: #fff;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            font-size: 24px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas" width="800" height="600"></canvas>
+    <h1 id="gameOverText" style="display: none;">Game Over</h1>
+    <h2 id="scoreText">Score: 0</h2>
+    <button id="retryButton" onclick="retryGame()" style="display: none;">Nochmal versuchen</button>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Spielfeldgröße
+        const fieldWidth = canvas.width;
+        const fieldHeight = canvas.height;
+
+        // Spielerrechteck
+        const playerWidth = 50;
+        const playerHeight = 50;
+        let playerX = (fieldWidth - playerWidth) / 2;
+        let playerY = fieldHeight - playerHeight;
+
+        // Geschwindigkeit des Spielers
+        const playerSpeed = 5;
+
+        // Gegner (Formen)
+        const enemies = [];
+
+        // Steuerung für Desktop
+        let leftPressed = false;
+        let rightPressed = false;
+
+        // Steuerung für Touch-Eingabe
+        let touchStartX = null;
+
+        // Spiel pausieren, wenn das Spiel endet
+        let gamePaused = false;
+
+        // Punktestand
+        let score = 0;
+
+        // Erhöhe die Wahrscheinlichkeit für das Erscheinen von Gegnern
+        let enemySpawnProbability = 0.02;
+
+        // Aktualisiert den Punktestand alle 1 Sekunde
+        setInterval(function () {
+            if (!gamePaused) {
+                score += 1;
+                document.getElementById('scoreText').textContent = 'Score: ' + score;
+                enemySpawnProbability += 0.0002; // Erhöhe die Wahrscheinlichkeit
+            }
+        }, 1000);
+
+        // Spiel-Update
+        function update() {
+            if (gamePaused) return; // Das Spiel ist pausiert
+
+            if (leftPressed && playerX > 0) {
+                playerX -= playerSpeed;
+            }
+            if (rightPressed && playerX + playerWidth < fieldWidth) {
+                playerX += playerSpeed;
+            }
+
+            // Hintergrund zeichnen
+            ctx.clearRect(0, 0, fieldWidth, fieldHeight);
+
+            // Spieler zeichnen
+            ctx.fillStyle = '#3498db';
+            ctx.fillRect(playerX, playerY, playerWidth, playerHeight);
+
+            // Gegner zeichnen und Kollision prüfen
+            for (let i = 0; i < enemies.length; i++) {
+                const enemy = enemies[i];
+                enemy.y += 2; // Bewegung der Gegner nach unten
+                ctx.fillStyle = '#e74c3c';
+                ctx.fillRect(enemy.x, enemy.y, enemy.width, enemy.height);
+
+                if (checkCollision(playerX, playerY, playerWidth, playerHeight, enemy.x, enemy.y, enemy.width, enemy.height)) {
+                    gameOver();
+                    return;
+                }
+
+                // Entferne Gegner, die den Bildschirm verlassen
+                if (enemy.y > fieldHeight) {
+                    enemies.splice(i, 1);
+                    i--;
+                }
+            }
+
+            // Zufällig neue Gegner erstellen
+            if (Math.random() < enemySpawnProbability) {
+                const enemyWidth = 30 + Math.random() * 40;
+                const enemyX = Math.random() * (fieldWidth - enemyWidth);
+                enemies.push({ x: enemyX, y: 0, width: enemyWidth, height: 20 });
+            }
+
+            requestAnimationFrame(update);
+        }
+
+        // Kollisionsprüfung
+        function checkCollision(x1, y1, w1, h1, x2, y2, w2, h2) {
+            return x1 < x2 + w2 && x1 + w1 > x2 && y1 < y2 + h2 && y1 + h1 > y2;
+        }
+
+        // Spielende
+        function gameOver() {
+            gamePaused = true;
+            const gameOverText = document.getElementById('gameOverText');
+            const retryButton = document.getElementById('retryButton');
+            gameOverText.style.display = 'block';
+            retryButton.style.display = 'block';
+        }
+
+        // Nochmal versuchen-Funktion
+        function retryGame() {
+            location.reload();
+        }
+
+        // Tastatursteuerung für Desktop
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowLeft') {
+                leftPressed = true;
+            } else if (e.key === 'ArrowRight') {
+                rightPressed = true;
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft') {
+                leftPressed = false;
+            } else if (e.key === 'ArrowRight') {
+                rightPressed = false;
+            }
+        });
+
+        // Touch-Steuerung für Mobilgeräte
+        canvas.addEventListener('touchstart', (e) => {
+            touchStartX = e.touches[0].clientX;
+        });
+
+        canvas.addEventListener('touchend', (e) => {
+            if (touchStartX !== null) {
+                const touchEndX = e.changedTouches[0].clientX;
+                if (touchEndX < touchStartX) {
+                    leftPressed = true;
+                    rightPressed = false;
+                } else {
+                    rightPressed = true;
+                    leftPressed = false;
+                }
+                touchStartX = null;
+            }
+        });
+
+        // Spiel starten
+        update();
+    </script>
+</body>
+</html>
